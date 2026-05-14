@@ -47,14 +47,21 @@ class InvidiousAudioResolver extends AudioResolver {
       )
       if (results.length) {
         yield* results.filter((res) => res.id.length)
+        return
       }
     } catch (err) {
       console.debug(err)
     }
+
+    yield* new YtDlpAudioResolver().getYouTubeSearchResults(searchTerm)
     return
   }
 
   async getAudioUrlFromVideo(video: YouTubeVideo): Promise<string | undefined> {
+    if (video.url) {
+      return video.url
+    }
+
     try {
       const endpoint = await this.getEndpoint()
       const audioUrl = await call<[string, string], string | null>(
@@ -62,11 +69,14 @@ class InvidiousAudioResolver extends AudioResolver {
         endpoint,
         video.id
       )
-      return audioUrl || undefined
+      if (audioUrl) {
+        return audioUrl
+      }
     } catch (err) {
       console.log(err)
     }
-    return undefined
+
+    return new YtDlpAudioResolver().getAudioUrlFromVideo(video)
   }
 
   async downloadAudio(video: YouTubeVideo): Promise<boolean> {
