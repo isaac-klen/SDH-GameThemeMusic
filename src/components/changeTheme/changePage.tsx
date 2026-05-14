@@ -6,8 +6,7 @@ import {
   PanelSectionRow,
   SteamSpinner,
   TextField,
-  showModal,
-  useParams
+  showModal
 } from '@decky/ui'
 import { useEffect, useState } from 'react'
 import { useSettings } from '../../hooks/useSettings'
@@ -17,6 +16,8 @@ import useTranslations from '../../hooks/useTranslations'
 import { YouTubeVideoPreview } from '../../../types/YouTube'
 import NoMusic from './noMusic'
 import { getResolver } from '../../actions/audio'
+import { useParams } from '../../hooks/useParams'
+import { getAppOverview } from '../../lib/appStore'
 
 export default function ChangePage({
   customSearch,
@@ -36,7 +37,7 @@ export default function ChangePage({
   const t = useTranslations()
   const { settings } = useSettings()
   const { appid } = useParams<{ appid: string }>()
-  const appDetails = appStore.GetAppOverviewByGameID(parseInt(appid))
+  const appDetails = getAppOverview(parseInt(appid))
   const appName = appDetails?.display_name?.replace(/(™|®|©)/g, '')
   const [selected, setSelected] = useState<string | undefined>()
   const [searchTerm, setSearchTerm] = useState(currentSearch)
@@ -54,7 +55,7 @@ export default function ChangePage({
     videoId: string
     audioUrl: string
   }) {
-    if (settings.downloadAudio) {
+    if (settings.downloadAudio && audio.videoId) {
       const success = await getResolver(settings.useYtDlp).downloadAudio({
         id: audio.videoId,
         url: audio.audioUrl

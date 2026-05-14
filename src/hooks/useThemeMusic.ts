@@ -4,6 +4,7 @@ import { getResolver } from '../actions/audio'
 
 import { getCache, updateCache } from '../cache/musicCache'
 import { useSettings } from '../hooks/useSettings'
+import { getAppOverview } from '../lib/appStore'
 
 const useThemeMusic = (appId: number) => {
   const { settings, isLoading: settingsLoading } = useSettings()
@@ -11,12 +12,17 @@ const useThemeMusic = (appId: number) => {
     videoId: '',
     audioUrl: ''
   })
-  const appDetails = appStore.GetAppOverviewByGameID(appId)
+  const isValidAppId = Number.isFinite(appId)
+  const appDetails = isValidAppId ? getAppOverview(appId) : null
   const appName = appDetails?.display_name?.replace(/(™|®|©)/g, '')
 
   useEffect(() => {
     let ignore = false
     async function getData() {
+      if (!isValidAppId) {
+        return setAudio({ videoId: '', audioUrl: '' })
+      }
+
       const resolver = getResolver(settings.useYtDlp)
       const cache = await getCache(appId)
       if (cache?.videoId?.length == 0) {
@@ -31,7 +37,10 @@ const useThemeMusic = (appId: number) => {
       } else if (settings.defaultMuted) {
         return setAudio({ videoId: '', audioUrl: '' })
       } else {
-        const newAudio = await resolver.getAudio(appName as string)
+        const newAudio = await resolver.getAudio(
+          appName as string,
+          settings.downloadAudio
+        )
         if (ignore) {
           return
         }
@@ -42,13 +51,21 @@ const useThemeMusic = (appId: number) => {
         return setAudio(newAudio)
       }
     }
-    if (appName?.length && !settingsLoading) {
+    if (appName?.length && !settingsLoading && isValidAppId) {
       getData()
     }
     return () => {
       ignore = true
     }
-  }, [appName, settingsLoading])
+  }, [
+    appId,
+    appName,
+    isValidAppId,
+    settings.defaultMuted,
+    settings.downloadAudio,
+    settings.useYtDlp,
+    settingsLoading
+  ])
 
   return {
     audio

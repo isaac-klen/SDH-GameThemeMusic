@@ -114,6 +114,91 @@ class Plugin:
         logger.info("No local match found.")
         return None
 
+    @staticmethod
+    def normalize_invidious_endpoint(endpoint: str) -> str:
+        return endpoint.rstrip("/")
+
+    @staticmethod
+    def normalize_invidious_thumbnail(endpoint: str, url: str | None) -> str:
+        if not url:
+            return "https://i.ytimg.com/vi/0.jpg"
+        if url.startswith("//"):
+            return f"https:{url}"
+        if url.startswith("/"):
+            return f"{Plugin.normalize_invidious_endpoint(endpoint)}{url}"
+        return url
+
+    async def search_invidious(self, endpoint: str, term: str):
+        endpoint = self.normalize_invidious_endpoint(endpoint)
+        logger.info(f"Searching Invidious at {endpoint} for: {term}")
+
+        params = {"type": "video", "page": "1", "q": term}
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(
+                f"{endpoint}/api/v1/search",
+                params=params,
+                ssl=self.ssl_context,
+            ) as res:
+                res.raise_for_status()
+                results = await res.json()
+
+        videos = []
+        for entry in results:
+            video_id = entry.get("videoId")
+            if not video_id:
+                continue
+
+            thumbnails = entry.get("videoThumbnails") or []
+            thumbnail = thumbnails[0].get("url") if thumbnails else None
+            videos.append(
+                {
+                    "title": entry.get("title", video_id),
+                    "id": video_id,
+                    "thumbnail": self.normalize_invidious_thumbnail(
+                        endpoint,
+                        thumbnail,
+                    ),
+                }
+            )
+
+        return videos
+
+    async def invidious_audio_url(self, endpoint: str, id: str):
+        endpoint = self.normalize_invidious_endpoint(endpoint)
+        logger.info(f"Fetching Invidious audio URL from {endpoint} for: {id}")
+
+        params = {"fields": "adaptiveFormats"}
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(
+                f"{endpoint}/api/v1/videos/{id}",
+                params=params,
+                ssl=self.ssl_context,
+            ) as res:
+                res.raise_for_status()
+                result = await res.json()
+
+        audio_formats = [
+            fmt
+            for fmt in result.get("adaptiveFormats", [])
+            if str(fmt.get("type", "")).startswith("audio/")
+            and fmt.get("url")
+        ]
+
+        if not audio_formats:
+            return None
+
+        webm_formats = [
+            fmt for fmt in audio_formats if "audio/webm" in str(fmt.get("type", ""))
+        ]
+        candidates = webm_formats or audio_formats
+
+        def score(fmt):
+            return int(fmt.get("bitrate") or fmt.get("audioSampleRate") or 0)
+
+        return max(candidates, key=score).get("url")
+
     async def single_yt_url(self, id: str):
         local_match = self.local_match(id)
         if local_match:
@@ -126,7 +211,7 @@ class Plugin:
         ytdlp_path = get_ytdlp_path()
         result = await asyncio.create_subprocess_exec(
             ytdlp_path,
-            f"{id}",
+            f"https://www.youtube.com/watch?v={id}",
             "-j",
             "-f", "bestaudio",
             stdout=asyncio.subprocess.PIPE,
@@ -138,22 +223,35 @@ class Plugin:
         entry = json.loads(output)
         return entry["url"]
 
+    async def local_audio_url(self, id: str):
+        local_match = self.local_match(id)
+        if not local_match:
+            return None
+
+        extension = local_match.split(".")[-1]
+        logger.info(f"Serving local audio for ID: {id}")
+        with open(local_match, "rb") as file:
+            return f"data:audio/{extension};base64,{base64.b64encode(file.read()).decode()}"
+
     async def download_yt_audio(self, id: str):
         if self.local_match(id):
             logger.info(f"Audio already downloaded for ID: {id}")
             return
 
         logger.info(f"Downloading audio for ID: {id}")
+        os.makedirs(self.music_path, exist_ok=True)
         ytdlp_path = get_ytdlp_path()
         process = await asyncio.create_subprocess_exec(
             ytdlp_path,
-            f"{id}",
+            f"https://www.youtube.com/watch?v={id}",
             "-f", "bestaudio",
             "-o", "%(id)s.%(ext)s",
             "-P", self.music_path,
             env={**os.environ, 'LD_LIBRARY_PATH': '/usr/lib:/lib'},
         )
         await process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"yt-dlp failed to download audio for {id}")
 
         original_path = os.path.join(self.music_path, f"{id}.m4a")
         renamed_path = os.path.join(self.music_path, f"{id}.webm")
@@ -163,6 +261,7 @@ class Plugin:
 
     async def download_url(self, url: str, id: str):
         logger.info(f"Downloading file from URL: {url}")
+        os.makedirs(self.music_path, exist_ok=True)
         async with aiohttp.ClientSession() as session:
             res = await session.get(url, ssl=self.ssl_context)
             res.raise_for_status()

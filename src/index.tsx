@@ -35,21 +35,19 @@ export default definePlugin(() => {
   const patchedMenu = patchContextMenu(LibraryContextMenu)
 
   const AppStateRegistrar =
-    SteamClient.GameSessions.RegisterForAppLifetimeNotifications(
-      (update: AppState) => {
-        const { gamesRunning } = state.getPublicState()
-        const setGamesRunning = state.setGamesRunning.bind(state)
+    SteamClient.GameSessions.RegisterForAppLifetimeNotifications((update) => {
+      const { gamesRunning } = state.getPublicState()
+      const setGamesRunning = state.setGamesRunning.bind(state)
 
-        if (update.bRunning) {
-          setGamesRunning([...gamesRunning, update.unAppID])
-        } else {
-          const filteredGames = gamesRunning.filter(
-            (e: number) => e !== update.unAppID
-          )
-          setGamesRunning(filteredGames)
-        }
+      if (update.bRunning) {
+        setGamesRunning([...gamesRunning, update.unAppID])
+      } else {
+        const filteredGames = gamesRunning.filter(
+          (e: number) => e !== update.unAppID
+        )
+        setGamesRunning(filteredGames)
       }
-    )
+    })
 
   return {
     title: <div className={staticClasses.Title}>{name}</div>,

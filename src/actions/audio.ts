@@ -1,10 +1,5 @@
 import { call } from '@decky/api'
-import {
-  YouTubeVideo,
-  YouTubeInitialData,
-  Audio,
-  YouTubeVideoPreview
-} from '../../types/YouTube'
+import { YouTubeVideo, YouTubeVideoPreview } from '../../types/YouTube'
 import { Settings, defaultSettings } from '../hooks/useSettings'
 
 abstract class AudioResolver {
@@ -17,12 +12,26 @@ abstract class AudioResolver {
   abstract downloadAudio(video: YouTubeVideo): Promise<boolean>
 
   async getAudio(
-    appName: string
+    appName: string,
+    downloadAudio = false
   ): Promise<{ videoId: string; audioUrl: string } | undefined> {
     const videos = this.getYouTubeSearchResults(appName + ' Theme Music')
     for await (const video of videos) {
       const audioUrl = await this.getAudioUrlFromVideo(video)
       if (audioUrl?.length) {
+        if (downloadAudio) {
+          const downloaded = await this.downloadAudio({
+            id: video.id,
+            url: audioUrl
+          })
+          if (downloaded) {
+            const localAudioUrl = await this.getAudioUrlFromVideo({
+              id: video.id
+            })
+            return { audioUrl: localAudioUrl ?? audioUrl, videoId: video.id }
+          }
+        }
+
         return { audioUrl, videoId: video.id }
       }
     }
@@ -44,56 +53,62 @@ class InvidiousAudioResolver extends AudioResolver {
     searchTerm: string
   ): AsyncIterable<YouTubeVideoPreview> {
     try {
-      const encodedSearchTerm = `${encodeURIComponent(searchTerm)}`
       const endpoint = await this.getEndpoint()
-      const res = await fetch(
-        `${endpoint}/api/v1/search?type=video&page=1&q=${encodedSearchTerm}`
+      const results = await call<[string, string], YouTubeVideoPreview[]>(
+        'search_invidious',
+        endpoint,
+        searchTerm
       )
-      if (res.status === 200) {
-        const results: YouTubeInitialData = await res.json()
-        if (results.length) {
-          yield* results
-            .map((res) => ({
-              title: res.title,
-              id: res.videoId,
-              thumbnail:
-                res.videoThumbnails?.[0].url || 'https://i.ytimg.com/vi/0.jpg'
-            }))
-            .filter((res) => res.id.length)
-        }
+      if (results.length) {
+        yield* results.filter((res) => res.id.length)
+        return
       }
     } catch (err) {
       console.debug(err)
     }
+
+    yield* new YtDlpAudioResolver().getYouTubeSearchResults(searchTerm)
     return
   }
 
   async getAudioUrlFromVideo(video: YouTubeVideo): Promise<string | undefined> {
+    const localAudioUrl = await call<[string], string | null>(
+      'local_audio_url',
+      video.id
+    )
+    if (localAudioUrl) {
+      return localAudioUrl
+    }
+
+    if (video.url) {
+      return video.url
+    }
+
     try {
       const endpoint = await this.getEndpoint()
-      const res = await fetch(
-        `${endpoint}/api/v1/videos/${encodeURIComponent(video.id)}?fields=adaptiveFormats`
+      const audioUrl = await call<[string, string], string | null>(
+        'invidious_audio_url',
+        endpoint,
+        video.id
       )
-      if (res.status === 200) {
-        const result = await res.json()
-        const audioFormats: { adaptiveFormats: Audio[] } = result
-
-        const audios = audioFormats.adaptiveFormats.filter((aud) =>
-          aud.type?.includes('audio/webm')
-        )
-        const audio = audios.reduce((prev, current) => {
-          return prev.audioSampleRate > current.audioSampleRate ? prev : current
-        }, audios[0])
-
-        return audio?.url
+      if (audioUrl) {
+        return audioUrl
       }
     } catch (err) {
       console.log(err)
     }
-    return undefined
+
+    return new YtDlpAudioResolver().getAudioUrlFromVideo(video)
   }
 
   async downloadAudio(video: YouTubeVideo): Promise<boolean> {
+    if (!video.id) return true
+
+    const ytDlpResolver = new YtDlpAudioResolver()
+    if (await ytDlpResolver.downloadAudio({ id: video.id })) {
+      return true
+    }
+
     if (!video.url) {
       video.url = await this.getAudioUrlFromVideo(video)
       if (!video.url) {
@@ -143,6 +158,8 @@ class YtDlpAudioResolver extends AudioResolver {
   }
 
   async downloadAudio(video: YouTubeVideo): Promise<boolean> {
+    if (!video.id) return true
+
     try {
       await call<[string]>('download_yt_audio', video.id)
       return true
