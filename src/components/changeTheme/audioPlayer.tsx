@@ -76,6 +76,14 @@ export default function AudioPlayer({
     }
   }
 
+  const canSelect =
+    !loading && !downloading && (!selected || settings.downloadAudio)
+  const selectLabel = settings.downloadAudio
+    ? t('download')
+    : selected
+      ? t('selected')
+      : t('select')
+
   if (!loading && !audioUrl) return <></>
   return (
     <div>
@@ -157,15 +165,11 @@ export default function AudioPlayer({
             </DialogButton>
             <div style={{ position: 'relative' }}>
               <DialogButton
-                disabled={selected || loading}
-                focusable={!selected && !loading}
+                disabled={!canSelect}
+                focusable={canSelect}
                 onClick={selectAudio}
               >
-                {selected
-                  ? t('selected')
-                  : settings.downloadAudio
-                    ? t('download')
-                    : t('select')}
+                {selectLabel}
               </DialogButton>
               {selected ? (
                 <div

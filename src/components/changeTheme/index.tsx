@@ -1,5 +1,5 @@
 import { Tabs } from '@decky/ui'
-import { useEffect, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useState } from 'react'
 
 import useTranslations from '../../hooks/useTranslations'
 import ChangePage from './changePage'
@@ -25,6 +25,19 @@ export default function ChangeTheme() {
   const [loadingNum, setLoadingNum] = useState(0)
   const initialSearch = appName?.concat(' Theme Music') ?? ''
   const [searchTerm, setSearchTerm] = useState(initialSearch)
+  const tabContent = (content: ReactNode) => (
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        overflowX: 'hidden'
+      }}
+    >
+      {content}
+    </div>
+  )
+
   useEffect(() => {
     let ignore = false
     async function getData() {
@@ -46,7 +59,7 @@ export default function ChangeTheme() {
     return () => {
       ignore = true
     }
-  }, [searchTerm, settingsLoading])
+  }, [searchTerm, settings.useYtDlp, settingsLoading])
 
   function handlePlay(index: number, startPlay: boolean) {
     setVideos((oldVideos) => {
@@ -63,6 +76,32 @@ export default function ChangeTheme() {
     return initialSearch
   }
 
+  const tabs = useMemo(
+    () => [
+      {
+        title: t('changeThemeMusic'),
+        content: tabContent(
+          <ChangePage
+            videos={videos}
+            loading={loadingNum > 0}
+            handlePlay={handlePlay}
+            customSearch={setSearchTerm}
+            currentSearch={searchTerm}
+            setInitialSearch={setInitialSearch}
+          />
+        ),
+        id: 'change-music-tab'
+      },
+      {
+        title: t('gameSettings'),
+        content: tabContent(<GameSettings />),
+        id: 'game-settings-tab'
+      },
+      { title: t('about'), content: tabContent(<AboutPage />), id: 'about-tab' }
+    ],
+    [currentTab, loadingNum, searchTerm, t, videos]
+  )
+
   return (
     <div
       style={{
@@ -74,28 +113,7 @@ export default function ChangeTheme() {
         autoFocusContents
         activeTab={currentTab}
         onShowTab={setCurrentTab}
-        tabs={[
-          {
-            title: t('changeThemeMusic'),
-            content: (
-              <ChangePage
-                videos={videos}
-                loading={loadingNum > 0}
-                handlePlay={handlePlay}
-                customSearch={setSearchTerm}
-                currentSearch={searchTerm}
-                setInitialSearch={setInitialSearch}
-              />
-            ),
-            id: 'change-music-tab'
-          },
-          {
-            title: t('gameSettings'),
-            content: <GameSettings />,
-            id: 'game-settings-tab'
-          },
-          { title: t('about'), content: <AboutPage />, id: 'about-tab' }
-        ]}
+        tabs={tabs}
       />
     </div>
   )

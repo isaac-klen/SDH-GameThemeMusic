@@ -1,10 +1,5 @@
 import { call } from '@decky/api'
-import {
-  YouTubeVideo,
-  YouTubeInitialData,
-  Audio,
-  YouTubeVideoPreview
-} from '../../types/YouTube'
+import { YouTubeVideo, YouTubeVideoPreview } from '../../types/YouTube'
 import { Settings, defaultSettings } from '../hooks/useSettings'
 
 abstract class AudioResolver {
@@ -44,23 +39,14 @@ class InvidiousAudioResolver extends AudioResolver {
     searchTerm: string
   ): AsyncIterable<YouTubeVideoPreview> {
     try {
-      const encodedSearchTerm = `${encodeURIComponent(searchTerm)}`
       const endpoint = await this.getEndpoint()
-      const res = await fetch(
-        `${endpoint}/api/v1/search?type=video&page=1&q=${encodedSearchTerm}`
+      const results = await call<[string, string], YouTubeVideoPreview[]>(
+        'search_invidious',
+        endpoint,
+        searchTerm
       )
-      if (res.status === 200) {
-        const results: YouTubeInitialData = await res.json()
-        if (results.length) {
-          yield* results
-            .map((res) => ({
-              title: res.title,
-              id: res.videoId,
-              thumbnail:
-                res.videoThumbnails?.[0].url || 'https://i.ytimg.com/vi/0.jpg'
-            }))
-            .filter((res) => res.id.length)
-        }
+      if (results.length) {
+        yield* results.filter((res) => res.id.length)
       }
     } catch (err) {
       console.debug(err)
@@ -71,22 +57,12 @@ class InvidiousAudioResolver extends AudioResolver {
   async getAudioUrlFromVideo(video: YouTubeVideo): Promise<string | undefined> {
     try {
       const endpoint = await this.getEndpoint()
-      const res = await fetch(
-        `${endpoint}/api/v1/videos/${encodeURIComponent(video.id)}?fields=adaptiveFormats`
+      const audioUrl = await call<[string, string], string | null>(
+        'invidious_audio_url',
+        endpoint,
+        video.id
       )
-      if (res.status === 200) {
-        const result = await res.json()
-        const audioFormats: { adaptiveFormats: Audio[] } = result
-
-        const audios = audioFormats.adaptiveFormats.filter((aud) =>
-          aud.type?.includes('audio/webm')
-        )
-        const audio = audios.reduce((prev, current) => {
-          return prev.audioSampleRate > current.audioSampleRate ? prev : current
-        }, audios[0])
-
-        return audio?.url
-      }
+      return audioUrl || undefined
     } catch (err) {
       console.log(err)
     }
@@ -242,7 +218,7 @@ export async function getInvidiousInstances(): Promise<
       )
       if (instances?.length) {
         return instances
-          .filter((ins) => ins.type === 'https')
+          .filter((ins) => ins.type === 'https' && ins.api !== false)
           .map((ins) => ({
             name: `${ins.flag} ${ins.monitor?.alias ?? ins.uri} | ${ins.stats?.usage.users.total} Users${
               ins.monitor?.uptime
