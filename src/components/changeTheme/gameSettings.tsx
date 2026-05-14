@@ -2,8 +2,7 @@ import {
   DialogButton,
   Focusable,
   SliderField,
-  PanelSectionRow,
-  useParams
+  PanelSectionRow
 } from '@decky/ui'
 import { useEffect, useState } from 'react'
 import { getCache, updateCache } from '../../cache/musicCache'
@@ -14,6 +13,7 @@ import { useSettings } from '../../hooks/useSettings'
 import { FaVolumeUp } from 'react-icons/fa'
 import Spinner from '../spinner'
 import useAudioPlayer from '../../hooks/useAudioPlayer'
+import { useParams } from '../../hooks/useParams'
 
 export default function GameSettings() {
   const t = useTranslations()

@@ -3,12 +3,28 @@ import {
   afterPatch,
   fakeRenderComponent,
   findInReactTree,
-  findModuleChild,
+  findModuleDetailsByExport,
   MenuItem,
   Navigation,
   Patch
 } from '@decky/ui'
 import useTranslations from '../hooks/useTranslations'
+
+type RemovablePatch = Pick<Patch, 'unpatch'>
+
+const noopPatch: RemovablePatch = {
+  unpatch: () => undefined
+}
+
+const getFunctionSource = (value: unknown): string | undefined => {
+  if (typeof value !== 'function') return undefined
+
+  try {
+    return Function.prototype.toString.call(value)
+  } catch {
+    return undefined
+  }
+}
 
 function ChangeMusicButton({ appId }: { appId: number }) {
   const t = useTranslations()
@@ -26,18 +42,25 @@ function ChangeMusicButton({ appId }: { appId: number }) {
 
 // Always add before "Properties..."
 const spliceChangeMusic = (children: any[], appid: number) => {
-  children.find((x: any) => x?.key === 'properties')
+  if (!Array.isArray(children)) return
+
+  const existingIdx = children.findIndex(
+    (x: any) => x?.key === 'game-theme-music-change-music'
+  )
+  if (existingIdx !== -1) children.splice(existingIdx, 1)
+
   const propertiesMenuItemIdx = children.findIndex((item) =>
     findInReactTree(
       item,
-      (x) => x?.onSelected && x.onSelected.toString().includes('AppProperties')
+      (x) => getFunctionSource(x?.onSelected)?.includes('AppProperties')
     )
   )
-  children.splice(
-    propertiesMenuItemIdx,
-    0,
+  const insertIdx =
+    propertiesMenuItemIdx === -1 ? children.length : propertiesMenuItemIdx
+
+  children.splice(insertIdx, 0, (
     <ChangeMusicButton key="game-theme-music-change-music" appId={appid} />
-  )
+  ))
 }
 
 /**
@@ -45,7 +68,9 @@ const spliceChangeMusic = (children: any[], appid: number) => {
  * @param LibraryContextMenu The game context menu.
  * @returns A patch to remove when the plugin dismounts.
  */
-const contextMenuPatch = (LibraryContextMenu: any) => {
+const contextMenuPatch = (LibraryContextMenu: any): RemovablePatch => {
+  if (!LibraryContextMenu?.prototype?.render) return noopPatch
+
   const patches: {
     outer?: Patch
     inner?: Patch
@@ -59,7 +84,10 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
     LibraryContextMenu.prototype,
     'render',
     (_: Record<string, unknown>[], component: any) => {
-      const appid: number = component._owner.pendingProps.overview.appid
+      const appid: number | undefined =
+        component?._owner?.pendingProps?.overview?.appid
+
+      if (!appid) return component
 
       if (!patches.inner) {
         patches.inner = afterPatch(
@@ -95,7 +123,7 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
           }
         )
       } else {
-        spliceChangeMusic(component.props.children, appid)
+        spliceChangeMusic(component?.props?.children, appid)
       }
 
       return component
@@ -111,23 +139,22 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
 /**
  * Game context menu component.
  */
-export const LibraryContextMenu = fakeRenderComponent(
-  findModuleChild((m) => {
-    if (typeof m !== 'object') return
-    for (const prop in m) {
-      if (
-        m[prop]?.toString() &&
-        m[prop].toString().includes('().LibraryContextMenu')
-      ) {
-        return Object.values(m).find(
-          (sibling) =>
-            sibling?.toString().includes('createElement') &&
-            sibling?.toString().includes('navigator:')
+const [LibraryContextMenuExports] = findModuleDetailsByExport((value) =>
+  Boolean(getFunctionSource(value)?.includes('().LibraryContextMenu'))
+)
+
+const LibraryContextMenuModule =
+  LibraryContextMenuExports && typeof LibraryContextMenuExports === 'object'
+    ? Object.values(LibraryContextMenuExports).find((sibling) => {
+        const source = getFunctionSource(sibling)
+        return (
+          source?.includes('createElement') && source.includes('navigator:')
         )
-      }
-    }
-    return
-  })
-).type
+      })
+    : undefined
+
+export const LibraryContextMenu = LibraryContextMenuModule
+  ? fakeRenderComponent(LibraryContextMenuModule)?.type
+  : undefined
 
 export default contextMenuPatch

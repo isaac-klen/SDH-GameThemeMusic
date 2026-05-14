@@ -1,10 +1,10 @@
-import { useParams } from '@decky/ui'
 import { ReactElement, useEffect } from 'react'
 
 import useThemeMusic from '../../hooks/useThemeMusic'
 import { useSettings } from '../../hooks/useSettings'
 import { getCache } from '../../cache/musicCache'
 import useAudioPlayer from '../../hooks/useAudioPlayer'
+import { useParams } from '../../hooks/useParams'
 
 export default function ThemePlayer(): ReactElement {
   const { settings, isLoading: settingsIsLoading } = useSettings()

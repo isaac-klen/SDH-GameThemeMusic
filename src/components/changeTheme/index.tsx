@@ -1,4 +1,4 @@
-import { Tabs, useParams } from '@decky/ui'
+import { Tabs } from '@decky/ui'
 import { useEffect, useState } from 'react'
 
 import useTranslations from '../../hooks/useTranslations'
@@ -8,6 +8,7 @@ import { getResolver } from '../../actions/audio'
 import { YouTubeVideoPreview } from '../../../types/YouTube'
 import GameSettings from './gameSettings'
 import { useSettings } from '../../hooks/useSettings'
+import { useParams } from '../../hooks/useParams'
 
 export default function ChangeTheme() {
   const [currentTab, setCurrentTab] = useState<string>('change-music-tab')

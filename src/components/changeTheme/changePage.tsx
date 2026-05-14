@@ -6,8 +6,7 @@ import {
   PanelSectionRow,
   SteamSpinner,
   TextField,
-  showModal,
-  useParams
+  showModal
 } from '@decky/ui'
 import { useEffect, useState } from 'react'
 import { useSettings } from '../../hooks/useSettings'
@@ -17,6 +16,7 @@ import useTranslations from '../../hooks/useTranslations'
 import { YouTubeVideoPreview } from '../../../types/YouTube'
 import NoMusic from './noMusic'
 import { getResolver } from '../../actions/audio'
+import { useParams } from '../../hooks/useParams'
 
 export default function ChangePage({
   customSearch,
