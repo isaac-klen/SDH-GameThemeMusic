@@ -12,12 +12,17 @@ const useThemeMusic = (appId: number) => {
     videoId: '',
     audioUrl: ''
   })
-  const appDetails = getAppOverview(appId)
+  const isValidAppId = Number.isFinite(appId)
+  const appDetails = isValidAppId ? getAppOverview(appId) : null
   const appName = appDetails?.display_name?.replace(/(™|®|©)/g, '')
 
   useEffect(() => {
     let ignore = false
     async function getData() {
+      if (!isValidAppId) {
+        return setAudio({ videoId: '', audioUrl: '' })
+      }
+
       const resolver = getResolver(settings.useYtDlp)
       const cache = await getCache(appId)
       if (cache?.videoId?.length == 0) {
@@ -43,13 +48,13 @@ const useThemeMusic = (appId: number) => {
         return setAudio(newAudio)
       }
     }
-    if (appName?.length && !settingsLoading) {
+    if (appName?.length && !settingsLoading && isValidAppId) {
       getData()
     }
     return () => {
       ignore = true
     }
-  }, [appName, settingsLoading])
+  }, [appId, appName, isValidAppId, settingsLoading])
 
   return {
     audio
