@@ -37,7 +37,10 @@ const useThemeMusic = (appId: number) => {
       } else if (settings.defaultMuted) {
         return setAudio({ videoId: '', audioUrl: '' })
       } else {
-        const newAudio = await resolver.getAudio(appName as string)
+        const newAudio = await resolver.getAudio(
+          appName as string,
+          settings.downloadAudio
+        )
         if (ignore) {
           return
         }
@@ -54,7 +57,15 @@ const useThemeMusic = (appId: number) => {
     return () => {
       ignore = true
     }
-  }, [appId, appName, isValidAppId, settingsLoading])
+  }, [
+    appId,
+    appName,
+    isValidAppId,
+    settings.defaultMuted,
+    settings.downloadAudio,
+    settings.useYtDlp,
+    settingsLoading
+  ])
 
   return {
     audio

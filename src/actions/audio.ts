@@ -12,12 +12,26 @@ abstract class AudioResolver {
   abstract downloadAudio(video: YouTubeVideo): Promise<boolean>
 
   async getAudio(
-    appName: string
+    appName: string,
+    downloadAudio = false
   ): Promise<{ videoId: string; audioUrl: string } | undefined> {
     const videos = this.getYouTubeSearchResults(appName + ' Theme Music')
     for await (const video of videos) {
       const audioUrl = await this.getAudioUrlFromVideo(video)
       if (audioUrl?.length) {
+        if (downloadAudio) {
+          const downloaded = await this.downloadAudio({
+            id: video.id,
+            url: audioUrl
+          })
+          if (downloaded) {
+            const localAudioUrl = await this.getAudioUrlFromVideo({
+              id: video.id
+            })
+            return { audioUrl: localAudioUrl ?? audioUrl, videoId: video.id }
+          }
+        }
+
         return { audioUrl, videoId: video.id }
       }
     }
@@ -58,6 +72,14 @@ class InvidiousAudioResolver extends AudioResolver {
   }
 
   async getAudioUrlFromVideo(video: YouTubeVideo): Promise<string | undefined> {
+    const localAudioUrl = await call<[string], string | null>(
+      'local_audio_url',
+      video.id
+    )
+    if (localAudioUrl) {
+      return localAudioUrl
+    }
+
     if (video.url) {
       return video.url
     }
@@ -80,6 +102,13 @@ class InvidiousAudioResolver extends AudioResolver {
   }
 
   async downloadAudio(video: YouTubeVideo): Promise<boolean> {
+    if (!video.id) return true
+
+    const ytDlpResolver = new YtDlpAudioResolver()
+    if (await ytDlpResolver.downloadAudio({ id: video.id })) {
+      return true
+    }
+
     if (!video.url) {
       video.url = await this.getAudioUrlFromVideo(video)
       if (!video.url) {
@@ -129,6 +158,8 @@ class YtDlpAudioResolver extends AudioResolver {
   }
 
   async downloadAudio(video: YouTubeVideo): Promise<boolean> {
+    if (!video.id) return true
+
     try {
       await call<[string]>('download_yt_audio', video.id)
       return true
@@ -228,7 +259,7 @@ export async function getInvidiousInstances(): Promise<
       )
       if (instances?.length) {
         return instances
-          .filter((ins) => ins.type === 'https' && ins.api !== false)
+          .filter((ins) => ins.type === 'https')
           .map((ins) => ({
             name: `${ins.flag} ${ins.monitor?.alias ?? ins.uri} | ${ins.stats?.usage.users.total} Users${
               ins.monitor?.uptime

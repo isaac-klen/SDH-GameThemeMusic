@@ -55,7 +55,7 @@ export default function ChangePage({
     videoId: string
     audioUrl: string
   }) {
-    if (settings.downloadAudio) {
+    if (settings.downloadAudio && audio.videoId) {
       const success = await getResolver(settings.useYtDlp).downloadAudio({
         id: audio.videoId,
         url: audio.audioUrl

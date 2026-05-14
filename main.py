@@ -211,7 +211,7 @@ class Plugin:
         ytdlp_path = get_ytdlp_path()
         result = await asyncio.create_subprocess_exec(
             ytdlp_path,
-            f"{id}",
+            f"https://www.youtube.com/watch?v={id}",
             "-j",
             "-f", "bestaudio",
             stdout=asyncio.subprocess.PIPE,
@@ -223,6 +223,16 @@ class Plugin:
         entry = json.loads(output)
         return entry["url"]
 
+    async def local_audio_url(self, id: str):
+        local_match = self.local_match(id)
+        if not local_match:
+            return None
+
+        extension = local_match.split(".")[-1]
+        logger.info(f"Serving local audio for ID: {id}")
+        with open(local_match, "rb") as file:
+            return f"data:audio/{extension};base64,{base64.b64encode(file.read()).decode()}"
+
     async def download_yt_audio(self, id: str):
         if self.local_match(id):
             logger.info(f"Audio already downloaded for ID: {id}")
@@ -233,7 +243,7 @@ class Plugin:
         ytdlp_path = get_ytdlp_path()
         process = await asyncio.create_subprocess_exec(
             ytdlp_path,
-            f"{id}",
+            f"https://www.youtube.com/watch?v={id}",
             "-f", "bestaudio",
             "-o", "%(id)s.%(ext)s",
             "-P", self.music_path,
