@@ -9,13 +9,14 @@ import { YouTubeVideoPreview } from '../../../types/YouTube'
 import GameSettings from './gameSettings'
 import { useSettings } from '../../hooks/useSettings'
 import { useParams } from '../../hooks/useParams'
+import { getAppOverview } from '../../lib/appStore'
 
 export default function ChangeTheme() {
   const [currentTab, setCurrentTab] = useState<string>('change-music-tab')
   const t = useTranslations()
   const { settings, isLoading: settingsLoading } = useSettings()
   const { appid } = useParams<{ appid: string }>()
-  const appDetails = appStore.GetAppOverviewByGameID(parseInt(appid))
+  const appDetails = getAppOverview(parseInt(appid))
   const appName = appDetails?.display_name?.replace(/(™|®|©)/g, '')
 
   const [videos, setVideos] = useState<

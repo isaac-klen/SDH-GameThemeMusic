@@ -14,12 +14,13 @@ import { FaVolumeUp } from 'react-icons/fa'
 import Spinner from '../spinner'
 import useAudioPlayer from '../../hooks/useAudioPlayer'
 import { useParams } from '../../hooks/useParams'
+import { getAppOverview } from '../../lib/appStore'
 
 export default function GameSettings() {
   const t = useTranslations()
   const { settings, isLoading: settingsIsLoading } = useSettings()
   const { appid } = useParams<{ appid: string }>()
-  const appDetails = appStore.GetAppOverviewByGameID(parseInt(appid))
+  const appDetails = getAppOverview(parseInt(appid))
   const appName = appDetails?.display_name
 
   const [currentAudio, setCurrentAudio] = useState<string>()

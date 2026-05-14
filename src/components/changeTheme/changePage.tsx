@@ -17,6 +17,7 @@ import { YouTubeVideoPreview } from '../../../types/YouTube'
 import NoMusic from './noMusic'
 import { getResolver } from '../../actions/audio'
 import { useParams } from '../../hooks/useParams'
+import { getAppOverview } from '../../lib/appStore'
 
 export default function ChangePage({
   customSearch,
@@ -36,7 +37,7 @@ export default function ChangePage({
   const t = useTranslations()
   const { settings } = useSettings()
   const { appid } = useParams<{ appid: string }>()
-  const appDetails = appStore.GetAppOverviewByGameID(parseInt(appid))
+  const appDetails = getAppOverview(parseInt(appid))
   const appName = appDetails?.display_name?.replace(/(™|®|©)/g, '')
   const [selected, setSelected] = useState<string | undefined>()
   const [searchTerm, setSearchTerm] = useState(currentSearch)

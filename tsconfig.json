@@ -16,6 +16,7 @@
     "noImplicitAny": true,
     "strict": true,
     "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "resolveJsonModule": true
   },
   "include": ["src", "types"],

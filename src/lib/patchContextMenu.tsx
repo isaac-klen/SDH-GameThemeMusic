@@ -11,6 +11,7 @@ import {
 import useTranslations from '../hooks/useTranslations'
 
 type RemovablePatch = Pick<Patch, 'unpatch'>
+type ComponentFactory = (...args: never[]) => unknown
 
 const noopPatch: RemovablePatch = {
   unpatch: () => undefined
@@ -50,17 +51,18 @@ const spliceChangeMusic = (children: any[], appid: number) => {
   if (existingIdx !== -1) children.splice(existingIdx, 1)
 
   const propertiesMenuItemIdx = children.findIndex((item) =>
-    findInReactTree(
-      item,
-      (x) => getFunctionSource(x?.onSelected)?.includes('AppProperties')
+    findInReactTree(item, (x) =>
+      Boolean(getFunctionSource(x?.onSelected)?.includes('AppProperties'))
     )
   )
   const insertIdx =
     propertiesMenuItemIdx === -1 ? children.length : propertiesMenuItemIdx
 
-  children.splice(insertIdx, 0, (
+  children.splice(
+    insertIdx,
+    0,
     <ChangeMusicButton key="game-theme-music-change-music" appId={appid} />
-  ))
+  )
 }
 
 /**
@@ -145,12 +147,12 @@ const [LibraryContextMenuExports] = findModuleDetailsByExport((value) =>
 
 const LibraryContextMenuModule =
   LibraryContextMenuExports && typeof LibraryContextMenuExports === 'object'
-    ? Object.values(LibraryContextMenuExports).find((sibling) => {
+    ? (Object.values(LibraryContextMenuExports).find((sibling) => {
         const source = getFunctionSource(sibling)
         return (
           source?.includes('createElement') && source.includes('navigator:')
         )
-      })
+      }) as ComponentFactory | undefined)
     : undefined
 
 export const LibraryContextMenu = LibraryContextMenuModule

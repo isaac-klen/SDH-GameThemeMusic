@@ -14,6 +14,6 @@ const useParamsFromRouter = Object.values(ReactRouter ?? {}).find((value) =>
   /return (\w)\?\1\.params:{}/.test(getFunctionSource(value) ?? '')
 ) as (<T>() => T) | undefined
 
-export const useParams = <T,>(): T => {
+export const useParams = <T>(): T => {
   return useParamsFromRouter ? useParamsFromRouter<T>() : ({} as T)
 }

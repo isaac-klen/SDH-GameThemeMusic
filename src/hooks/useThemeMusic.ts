@@ -4,6 +4,7 @@ import { getResolver } from '../actions/audio'
 
 import { getCache, updateCache } from '../cache/musicCache'
 import { useSettings } from '../hooks/useSettings'
+import { getAppOverview } from '../lib/appStore'
 
 const useThemeMusic = (appId: number) => {
   const { settings, isLoading: settingsLoading } = useSettings()
@@ -11,7 +12,7 @@ const useThemeMusic = (appId: number) => {
     videoId: '',
     audioUrl: ''
   })
-  const appDetails = appStore.GetAppOverviewByGameID(appId)
+  const appDetails = getAppOverview(appId)
   const appName = appDetails?.display_name?.replace(/(™|®|©)/g, '')
 
   useEffect(() => {
